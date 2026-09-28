@@ -1,0 +1,6 @@
+{
+  "name": "CipherKey - Vault & 2FA Autofill",
+  "description": "Zero-knowledge password manager with real-time authenticator TOTP auto-fill, automated backup code dispatch, and vault security audit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

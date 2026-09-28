@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="#1e293b" stroke-width="4" opacity="0.6" />
+
+  <!-- Outer glow ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="url(#shieldGrad)" stroke-width="3" opacity="0.25" />
+
+  <!-- Shield Shape -->
+  <path d="M256 90 L380 145 C380 275 256 370 256 370 C256 370 132 275 132 145 Z" 
+        fill="#0f172a" 
+        stroke="url(#shieldGrad)" 
+        stroke-width="12" 
+        stroke-linejoin="round"
+        filter="url(#glow)" />
+
+  <!-- Lock Body -->
+  <rect x="206" y="235" width="100" height="85" rx="18" fill="url(#shieldGrad)" />
+  
+  <!-- Lock Shackle -->
+  <path d="M224 235 V200 C224 182 238 168 256 168 C274 168 288 182 288 200 V235" 
+        fill="none" 
+        stroke="url(#accentGrad)" 
+        stroke-width="14" 
+        stroke-linecap="round" />
+
+  <!-- Keyhole -->
+  <circle cx="256" cy="270" r="10" fill="#020617" />
+  <path d="M253 275 L259 275 L261 296 L251 296 Z" fill="#020617" />
+</svg>
