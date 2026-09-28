@@ -28,6 +28,7 @@ import {
   FileBadge,
   Globe,
   Car,
+  ArrowLeft,
   Calendar,
   User,
   MapPin,
@@ -57,6 +58,7 @@ export const VaultItemDetail: React.FC<VaultItemDetailProps> = ({
 }) => {
   const {
     activeItem,
+    setActiveItemId,
     deleteItem,
     toggleFavorite,
     consumeNextBackupCode,
@@ -256,16 +258,24 @@ export const VaultItemDetail: React.FC<VaultItemDetailProps> = ({
   return (
     <div className="flex-1 bg-slate-950 flex flex-col h-full overflow-y-auto">
       {/* Top Action Bar */}
-      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-950/95 backdrop-blur z-10">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-400 font-bold shrink-0">
+      <div className="px-4 md:px-6 py-3.5 md:py-4 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-950/95 backdrop-blur z-10">
+        <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
+          <button
+            onClick={() => setActiveItemId(null)}
+            className="md:hidden p-2 -ml-1 rounded-xl text-pink-400 hover:text-pink-300 hover:bg-slate-900 border border-purple-500/30 transition-colors shrink-0"
+            title="Back to vault list"
+            aria-label="Back to vault list"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-300 font-black shrink-0 shadow-sm">
             {isIdentityDoc ? (
               docData?.documentType === 'passport' ? (
-                <Globe className="w-5 h-5 text-emerald-400" />
+                <Globe className="w-5 h-5 text-pink-400" />
               ) : docData?.documentType === 'drivers_license' ? (
-                <Car className="w-5 h-5 text-cyan-400" />
+                <Car className="w-5 h-5 text-purple-400" />
               ) : (
-                <FileBadge className="w-5 h-5 text-teal-400" />
+                <FileBadge className="w-5 h-5 text-fuchsia-400" />
               )
             ) : (
               activeItem.title.slice(0, 2).toUpperCase()
@@ -273,7 +283,7 @@ export const VaultItemDetail: React.FC<VaultItemDetailProps> = ({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-100 truncate">
+              <h2 className="text-base md:text-xl font-black tracking-tight bg-gradient-to-r from-purple-300 via-pink-300 to-fuchsia-200 bg-clip-text text-transparent truncate">
                 {activeItem.title}
               </h2>
               <button
@@ -287,7 +297,7 @@ export const VaultItemDetail: React.FC<VaultItemDetailProps> = ({
               </button>
             </div>
             {isIdentityDoc ? (
-              <span className="text-xs text-teal-400 font-mono inline-flex items-center gap-1.5">
+              <span className="text-xs text-pink-400 font-mono inline-flex items-center gap-1.5">
                 <span>
                   {docData?.documentType === 'passport'
                     ? 'Official Passport'
@@ -300,8 +310,8 @@ export const VaultItemDetail: React.FC<VaultItemDetailProps> = ({
             ) : (
               <div className="flex items-center gap-2 flex-wrap">
                 {activeItem.category === 'custom' && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-indigo-950/80 text-indigo-300 border border-indigo-500/40 inline-flex items-center gap-1">
-                    <FolderSync className="w-3 h-3 text-indigo-400" />
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-950/80 text-purple-300 border border-purple-500/40 inline-flex items-center gap-1">
+                    <FolderSync className="w-3 h-3 text-pink-400" />
                     <span>Category: {activeItem.customCategoryName || 'Custom Category'}</span>
                   </span>
                 )}
@@ -310,7 +320,7 @@ export const VaultItemDetail: React.FC<VaultItemDetailProps> = ({
                     href={activeItem.websiteUrl}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-xs text-slate-400 hover:text-cyan-400 inline-flex items-center gap-1 font-mono transition-colors"
+                    className="text-xs text-slate-400 hover:text-pink-300 inline-flex items-center gap-1 font-mono transition-colors"
                   >
                     <span>{activeItem.websiteUrl.replace(/^https?:\/\//, '')}</span>
                     <ExternalLink className="w-3 h-3" />

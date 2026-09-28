@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "users": {
+      "path": "users/{userId}",
+      "description": "User profile with email and sync metadata",
+      "fields": {
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "optional": true, "description": "Display name" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of creation" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp of last update" }
+      }
+    },
+    "vaultSync": {
+      "path": "users/{userId}/vault_data/{docId}",
+      "description": "Client-side encrypted vault state for cross-device sync",
+      "fields": {
+        "userId": { "type": "string", "description": "UID of vault owner" },
+        "encryptedPayload": { "type": "string", "description": "AES-256-GCM encrypted vault data" },
+        "salt": { "type": "string", "description": "Base64 PBKDF2 salt" },
+        "iv": { "type": "string", "description": "Base64 initialization vector" },
+        "itemCount": { "type": "number", "description": "Number of encrypted items in vault" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp of sync" }
+      }
+    }
+  }
+}

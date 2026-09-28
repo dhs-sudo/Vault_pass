@@ -22,10 +22,12 @@ import {
   AppWindow,
   FileKey,
   FolderSync,
+  Menu,
 } from 'lucide-react';
 
 interface VaultListProps {
   onAddNew: () => void;
+  onOpenMobileMenu?: () => void;
 }
 
 // Mini TOTP ticker component for list items
@@ -47,13 +49,7 @@ const MiniTotpDisplay: React.FC<{ secret: string; digits?: 6 | 8 }> = ({ secret,
     };
 
     updateCode();
-    const interval = setInterval(() => {
-      const { remainingSeconds } = getTOTPTimeRemaining(30);
-      setRemaining(remainingSeconds);
-      if (remainingSeconds === 30 || remainingSeconds === 29) {
-        updateCode();
-      }
-    }, 1000);
+    const interval = setInterval(updateCode, 1000);
 
     return () => {
       isMounted = false;
@@ -61,122 +57,135 @@ const MiniTotpDisplay: React.FC<{ secret: string; digits?: 6 | 8 }> = ({ secret,
     };
   }, [secret, digits]);
 
-  const copyCode = (e: React.MouseEvent) => {
+  const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (code && code !== '------') {
-      navigator.clipboard.writeText(code);
-      setCopied(true);
-      showToast(`Copied 2FA code: ${code}`, 'success');
-      setTimeout(() => setCopied(false), 1500);
-    }
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    showToast(`2FA code ${code} copied to clipboard`, 'success');
+    setTimeout(() => setCopied(false), 2000);
   };
-
-  const isLowTime = remaining <= 5;
 
   return (
     <div
-      onClick={copyCode}
-      title={`Click to copy live code (${remaining}s remaining)`}
-      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900 border border-slate-700/60 hover:border-cyan-500/50 hover:bg-slate-800 text-xs font-mono transition-colors cursor-pointer group/totp"
+      onClick={handleCopy}
+      title="Click to copy live 2FA code"
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900 border border-purple-500/30 text-[11px] font-mono cursor-pointer hover:border-pink-500/60 transition-colors group"
     >
-      <span className={`text-[10px] tabular-nums font-semibold ${isLowTime ? 'text-rose-400' : 'text-cyan-400'}`}>
-        {remaining}s
-      </span>
-      <span className="text-slate-200 group-hover/totp:text-cyan-300 font-semibold tracking-wider tabular-nums">
+      <span className="text-[10px] text-pink-400 font-bold">{remaining}s</span>
+      <span className="font-bold text-slate-100 tracking-wider">
         {formatOtpDisplay(code)}
       </span>
       {copied ? (
-        <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+        <Check className="w-3 h-3 text-emerald-400" />
       ) : (
-        <Copy className="w-3 h-3 text-slate-400 group-hover/totp:text-cyan-300 opacity-60 group-hover/totp:opacity-100 shrink-0" />
+        <Copy className="w-3 h-3 text-slate-400 group-hover:text-pink-300" />
       )}
     </div>
   );
 };
 
-export const VaultList: React.FC<VaultListProps> = ({ onAddNew }) => {
+export const VaultList: React.FC<VaultListProps> = ({ onAddNew, onOpenMobileMenu }) => {
   const {
     items,
     activeItemId,
     setActiveItemId,
+    toggleFavorite,
     selectedCategory,
     searchQuery,
     setSearchQuery,
-    toggleFavorite,
   } = useVault();
 
-  // Filter items
+  // Filter items based on selected category & search query
   const filteredItems = items.filter((item) => {
-    // Search query match
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchUser = item.username.toLowerCase().includes(q);
-      const matchUrl = item.websiteUrl.toLowerCase().includes(q);
-      const matchTags = item.tags.some((t) => t.toLowerCase().includes(q));
-      const matchDocNumber = item.identityDoc?.documentNumber?.toLowerCase().includes(q);
-      const matchDocName = item.identityDoc?.fullName?.toLowerCase().includes(q);
-      if (!matchTitle && !matchUser && !matchUrl && !matchTags && !matchDocNumber && !matchDocName) {
-        return false;
-      }
-    }
-
-    // Category / Filter selection
-    if (selectedCategory === 'all') return true;
-    if (selectedCategory === 'favorites') return item.isFavorite;
-    if (selectedCategory === 'totp_active') return !!item.totpSecret;
+    // 1. Category Filter
+    if (selectedCategory === 'favorites' && !item.isFavorite) return false;
+    if (selectedCategory === 'totp_active' && !item.totpSecret) return false;
     if (selectedCategory === 'low_backup') {
-      if (!item.backupCodes || item.backupCodes.length === 0) return false;
-      const unused = item.backupCodes.filter((bc) => !bc.isUsed).length;
-      return unused <= 1;
+      const remaining = (item.backupCodes || []).filter((c) => !c.isUsed).length;
+      if (!(remaining > 0 && remaining <= 2)) return false;
     }
-
-    // Smart categories
-    if (selectedCategory === 'smart_developer') return item.serviceCategory === 'developer';
-    if (selectedCategory === 'smart_finance') return item.serviceCategory === 'finance';
-    if (selectedCategory === 'smart_productivity') return item.serviceCategory === 'productivity';
-    if (selectedCategory === 'smart_social') return item.serviceCategory === 'social';
-    if (selectedCategory === 'smart_entertainment') return item.serviceCategory === 'entertainment';
-    if (selectedCategory === 'smart_shopping') return item.serviceCategory === 'shopping';
-
-    // Custom Categories
-    if (selectedCategory === 'custom') return item.category === 'custom';
+    if (selectedCategory.startsWith('smart_')) {
+      const catKey = selectedCategory.replace('smart_', '');
+      if (item.serviceCategory !== catKey) return false;
+    }
     if (selectedCategory.startsWith('custom_name:')) {
-      const targetName = selectedCategory.replace('custom_name:', '').toLowerCase();
-      return item.category === 'custom' && (item.customCategoryName?.toLowerCase() === targetName);
+      const targetName = selectedCategory.replace('custom_name:', '');
+      if (item.category !== 'custom' || item.customCategoryName !== targetName) return false;
+    }
+    if (
+      selectedCategory !== 'all' &&
+      selectedCategory !== 'favorites' &&
+      selectedCategory !== 'totp_active' &&
+      selectedCategory !== 'low_backup' &&
+      !selectedCategory.startsWith('smart_') &&
+      !selectedCategory.startsWith('custom_name:') &&
+      item.category !== selectedCategory
+    ) {
+      return false;
     }
 
-    return item.category === selectedCategory;
+    // 2. Search Query Filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = item.title.toLowerCase().includes(query);
+      const matchUsername = item.username?.toLowerCase().includes(query);
+      const matchUrl = item.websiteUrl?.toLowerCase().includes(query);
+      const matchTags = item.tags.some((t) => t.toLowerCase().includes(query));
+      const matchDoc = item.identityDoc && (
+        item.identityDoc.documentNumber.toLowerCase().includes(query) ||
+        item.identityDoc.fullName.toLowerCase().includes(query)
+      );
+      const matchCustom = item.customCategoryName && item.customCategoryName.toLowerCase().includes(query);
+      const matchCustomFields = item.customFields && item.customFields.some((f) => 
+        f.label.toLowerCase().includes(query) || f.value.toLowerCase().includes(query)
+      );
+      const matchKeyPass = item.keyPass && (
+        item.keyPass.name.toLowerCase().includes(query) ||
+        item.keyPass.content.toLowerCase().includes(query)
+      );
+      return Boolean(matchTitle || matchUsername || matchUrl || matchTags || matchDoc || matchCustom || matchCustomFields || matchKeyPass);
+    }
+
+    return true;
   });
 
   const getCategoryIcon = (item: VaultItem) => {
-    if (item.category === 'identity_doc') {
-      const docType = item.identityDoc?.documentType;
-      if (docType === 'passport') return <Globe className="w-4 h-4 text-emerald-400" />;
-      if (docType === 'drivers_license') return <Car className="w-4 h-4 text-cyan-400" />;
-      return <FileBadge className="w-4 h-4 text-teal-400" />;
-    }
-
     switch (item.category) {
-      case 'custom':
-        return <FolderSync className="w-4 h-4 text-indigo-400" />;
+      case 'identity_doc':
+        if (item.identityDoc?.documentType === 'passport') return <Globe className="w-4 h-4 text-pink-400" />;
+        if (item.identityDoc?.documentType === 'drivers_license') return <Car className="w-4 h-4 text-purple-400" />;
+        if (item.identityDoc?.documentType === 'id_card') return <FileBadge className="w-4 h-4 text-fuchsia-400" />;
+        return <Shield className="w-4 h-4 text-pink-400" />;
+      case 'login':
+        return <KeyRound className="w-4 h-4 text-pink-400" />;
       case 'card':
         return <CreditCard className="w-4 h-4 text-purple-400" />;
       case 'secure_note':
-        return <FileText className="w-4 h-4 text-amber-400" />;
+        return <FileText className="w-4 h-4 text-fuchsia-400" />;
       case 'api_key':
-        return <Terminal className="w-4 h-4 text-emerald-400" />;
-      case 'login':
+        return <Terminal className="w-4 h-4 text-purple-400" />;
+      case 'custom':
+        return <FolderSync className="w-4 h-4 text-pink-400" />;
       default:
-        return <KeyRound className="w-4 h-4 text-cyan-400" />;
+        return <KeyRound className="w-4 h-4 text-pink-400" />;
     }
   };
 
   return (
-    <div className="w-80 md:w-96 bg-slate-950 border-r border-slate-800 flex flex-col h-full select-none shrink-0">
+    <div className="w-full md:w-80 lg:w-96 bg-slate-950 border-r border-slate-800 flex flex-col h-full select-none shrink-0">
       {/* Top search & Action bar */}
-      <div className="p-3 border-b border-slate-800 space-y-2.5">
+      <div className="p-3 md:p-3.5 border-b border-slate-800 space-y-2.5">
         <div className="flex items-center gap-2">
+          {onOpenMobileMenu && (
+            <button
+              onClick={onOpenMobileMenu}
+              className="md:hidden p-2 rounded-xl text-slate-300 hover:text-pink-300 bg-slate-900 border border-purple-500/30 transition-colors shrink-0"
+              title="Open Categories & Menu"
+              aria-label="Open Categories & Menu"
+            >
+              <Menu className="w-5 h-5 text-pink-400" />
+            </button>
+          )}
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -184,7 +193,7 @@ export const VaultList: React.FC<VaultListProps> = ({ onAddNew }) => {
               placeholder="Search items, tags, logins..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-md text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/50 transition-colors"
+              className="w-full pl-8 pr-3 py-2 md:py-1.5 text-sm md:text-xs bg-slate-900 border border-slate-800 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-pink-500/70 focus:ring-1 focus:ring-pink-500/40 transition-colors"
             />
             {searchQuery && (
               <button
@@ -197,15 +206,15 @@ export const VaultList: React.FC<VaultListProps> = ({ onAddNew }) => {
           </div>
           <button
             onClick={onAddNew}
-            className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold text-xs rounded-md shadow-sm transition-colors whitespace-nowrap shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 md:py-1.5 bg-gradient-to-r from-purple-600 via-pink-600 to-fuchsia-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-sm md:text-xs rounded-xl shadow-md shadow-pink-500/20 transition-all whitespace-nowrap shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Item</span>
+            <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
+            <span>New</span>
           </button>
         </div>
 
-        {/* Category count indicator (Zero-Pill discipline: unboxed text with · separator) */}
-        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-mono">
+        {/* Category count indicator */}
+        <div className="flex items-center justify-between text-xs md:text-[11px] text-purple-300/80 px-1 font-mono">
           <span className="capitalize">
             {selectedCategory.startsWith('custom_name:')
               ? `Custom: ${selectedCategory.replace('custom_name:', '')}`
@@ -221,7 +230,7 @@ export const VaultList: React.FC<VaultListProps> = ({ onAddNew }) => {
       <div className="flex-1 overflow-y-auto divide-y divide-slate-800/40">
         {filteredItems.length === 0 ? (
           <div className="p-8 text-center text-slate-400 space-y-3">
-            <KeyRound className="w-8 h-8 mx-auto text-slate-400" />
+            <KeyRound className="w-8 h-8 mx-auto text-pink-400/60" />
             <div>
               <p className="text-sm font-medium text-slate-300">No items found</p>
               <p className="text-xs text-slate-400 mt-1">
@@ -232,7 +241,7 @@ export const VaultList: React.FC<VaultListProps> = ({ onAddNew }) => {
             </div>
             <button
               onClick={onAddNew}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-cyan-400 bg-cyan-950/40 border border-cyan-800/50 rounded-md hover:bg-cyan-900/50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-xl shadow-md shadow-pink-500/20 transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create New Item</span>
@@ -249,42 +258,42 @@ export const VaultList: React.FC<VaultListProps> = ({ onAddNew }) => {
               <div
                 key={item.id}
                 onClick={() => setActiveItemId(item.id)}
-                className={`p-3 cursor-pointer transition-colors relative group ${
+                className={`p-3.5 md:p-3 cursor-pointer transition-colors relative group ${
                   isSelected
-                    ? 'bg-slate-900/90 border-l-2 border-l-cyan-400'
+                    ? 'bg-gradient-to-r from-purple-950/40 to-slate-900/90 border-l-2 border-l-pink-400'
                     : 'hover:bg-slate-900/50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 md:w-7 md:h-7 rounded-lg bg-slate-900 border border-purple-500/25 flex items-center justify-center shrink-0">
                       {getCategoryIcon(item)}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-xs font-semibold text-slate-100 truncate group-hover:text-cyan-300 transition-colors">
+                        <h4 className="text-sm md:text-xs font-semibold text-slate-100 truncate group-hover:text-pink-300 transition-colors">
                           {item.title}
                         </h4>
                         {item.linkedApp && (
-                          <span className="text-[9px] font-mono text-cyan-300 bg-cyan-950/70 px-1 py-0.5 rounded border border-cyan-800/50 inline-flex items-center gap-0.5" title={`Linked to ${item.linkedApp.appName}`}>
+                          <span className="text-[9px] font-mono text-pink-300 bg-pink-950/70 px-1 py-0.5 rounded border border-pink-800/50 inline-flex items-center gap-0.5" title={`Linked to ${item.linkedApp.appName}`}>
                             <AppWindow className="w-2.5 h-2.5" />
                             <span>{item.linkedApp.appName}</span>
                           </span>
                         )}
                         {item.keyPass && (
-                          <span className="text-[9px] font-mono text-emerald-300 bg-emerald-950/70 px-1 py-0.5 rounded border border-emerald-800/50 inline-flex items-center gap-0.5" title={`KeyPass: ${item.keyPass.name}`}>
+                          <span className="text-[9px] font-mono text-purple-300 bg-purple-950/70 px-1 py-0.5 rounded border border-purple-800/50 inline-flex items-center gap-0.5" title={`KeyPass: ${item.keyPass.name}`}>
                             <FileKey className="w-2.5 h-2.5" />
                             <span>{item.keyPass.type === 'passkey' ? 'Passkey' : 'Keyfile'}</span>
                           </span>
                         )}
                         {item.category === 'custom' && (
-                          <span className="text-[9px] font-mono text-indigo-300 bg-indigo-950/70 px-1 py-0.5 rounded border border-indigo-800/50 inline-flex items-center gap-0.5" title={`Custom Category: ${item.customCategoryName || 'Custom'}`}>
+                          <span className="text-[9px] font-mono text-fuchsia-300 bg-fuchsia-950/70 px-1 py-0.5 rounded border border-fuchsia-800/50 inline-flex items-center gap-0.5" title={`Custom Category: ${item.customCategoryName || 'Custom'}`}>
                             <FolderSync className="w-2.5 h-2.5" />
                             <span>{item.customCategoryName || 'Custom'}</span>
                           </span>
                         )}
                         {item.customFields && item.customFields.length > 0 && (
-                          <span className="text-[9px] font-mono text-cyan-300 bg-cyan-950/50 px-1 py-0.5 rounded border border-cyan-800/40 inline-flex items-center gap-0.5" title={`${item.customFields.length} custom option fields`}>
+                          <span className="text-[9px] font-mono text-pink-300 bg-pink-950/50 px-1 py-0.5 rounded border border-pink-800/40 inline-flex items-center gap-0.5" title={`${item.customFields.length} custom option fields`}>
                             <span>⚡ {item.customFields.length} fields</span>
                           </span>
                         )}
@@ -305,40 +314,40 @@ export const VaultList: React.FC<VaultListProps> = ({ onAddNew }) => {
                     title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                     className={`p-1 rounded transition-colors ${
                       item.isFavorite
-                        ? 'text-amber-400'
-                        : 'text-slate-400 hover:text-slate-400 opacity-0 group-hover:opacity-100'
+                        ? 'text-amber-400 hover:text-amber-300'
+                        : 'text-slate-600 hover:text-slate-400 opacity-0 group-hover:opacity-100'
                     }`}
                   >
                     <Star className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-amber-400' : ''}`} />
                   </button>
                 </div>
 
-                {/* 2FA TOTP & Backup Code Status Badges */}
-                <div className="mt-2.5 flex items-center justify-between gap-2 pt-1 border-t border-slate-800/40">
-                  {item.totpSecret ? (
-                    <MiniTotpDisplay secret={item.totpSecret} digits={item.totpDigits || 6} />
-                  ) : (
-                    <span className="text-[10px] text-slate-400 italic">
-                      No 2FA configured
-                    </span>
-                  )}
+                {/* Sub-row: Active TOTP or Backup status */}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div>
+                    {item.totpSecret ? (
+                      <MiniTotpDisplay secret={item.totpSecret} digits={item.totpDigits || 6} />
+                    ) : item.websiteUrl ? (
+                      <span className="text-[10px] text-slate-500 font-mono truncate max-w-[180px] inline-block">
+                        {item.websiteUrl.replace(/^https?:\/\//, '')}
+                      </span>
+                    ) : null}
+                  </div>
 
-                  {backupCodesCount > 0 ? (
+                  {backupCodesCount > 0 && (
                     <div
-                      className={`flex items-center gap-1 text-[11px] font-mono tabular-nums ${
-                        isLowBackup ? 'text-amber-400 font-semibold' : 'text-slate-400'
+                      title={`${unusedBackupCount} of ${backupCodesCount} backup codes remaining`}
+                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded border flex items-center gap-1 ${
+                        isLowBackup
+                          ? 'bg-amber-950/70 text-amber-300 border-amber-800/70'
+                          : 'bg-slate-900 text-purple-300 border-purple-800/50'
                       }`}
-                      title={`${unusedBackupCount} unused backup codes remaining out of ${backupCodesCount}`}
                     >
-                      {isLowBackup && <ShieldAlert className="w-3 h-3 text-amber-400 shrink-0" />}
+                      {isLowBackup && <ShieldAlert className="w-2.5 h-2.5 text-amber-400" />}
                       <span>
                         {unusedBackupCount}/{backupCodesCount} codes
                       </span>
                     </div>
-                  ) : (
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      0 backup codes
-                    </span>
                   )}
                 </div>
               </div>
